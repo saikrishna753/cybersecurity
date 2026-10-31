@@ -34,15 +34,16 @@ Status: ✅ done · 🟡 in progress · ⬜ todo
 - ✅ tsc --noEmit + vite build gates
 - ✅ Real-row ML validation (DDoS/BENIGN/PortScan samples)
 - ✅ PCAP fixture end-to-end (benign 0 FP; DDoS 60/60; PortScan 24/250 documented)
-- 🟡 Live preview verification (backend+frontend via start_process)
+- ✅ Live preview verification (backend :8000 + frontend :5173 via start_process;
+      login + PCAP upload→analyze→alerts→dashboard verified through the proxy)
 - ✅ Defect fixes: SQLite deadlock, PDF chart lifecycle, CIC sample-std, timeline
 
-## Phase 5 — Delivery 🟡
+## Phase 5 — Delivery ✅
 - ✅ README with measured metrics + honest-metrics policy
 - ✅ Architecture doc, user manual, test report, task board
 - ✅ Docker: backend/frontend Dockerfiles, compose, nginx proxy config
-- ⬜ Final commit + push of docs/compose
-- ⬜ Live servers up + preview link verified
+- ✅ Final commit + push of docs/compose
+- ✅ Live servers up + preview verified (benign 0 FP, portscan 24/250, DDoS 60/60)
 
 ## Workstreams (10-agent simulation)
 1. Foundation/infra ✅ 2. Data & features ✅ 3. ML training ✅ 4. Backend API ✅
