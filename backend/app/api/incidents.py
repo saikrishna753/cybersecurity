@@ -216,6 +216,9 @@ def timeline(
         .order_by(SecurityAlert.created_at)
     ).scalars().all()
     events = [
+        {"at": inc.created_at.isoformat(), "kind": "created",
+         "actor": "system", "body": f"Incident created ({inc.severity}): {inc.title}"}
+    ] + [
         {"at": n.created_at.isoformat(), "kind": "note",
          "actor": n.author_name, "body": n.body}
         for n in notes

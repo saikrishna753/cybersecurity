@@ -183,7 +183,7 @@ def _process_flows(flows: list[dict], source: str, dataset_id: str | None = None
             db.flush()
             flow_pk_map = {r.flow_id: r.id for r in rows}
             for f in chunk:
-                result = detection_engine.detect_flow(f)
+                result = detection_engine.detect_flow(f, publish=False)
                 detections += 1
                 db.add(DetectionResult(
                     flow_id=result["flow_id"], flow_pk=flow_pk_map.get(result["flow_id"]),
@@ -195,6 +195,16 @@ def _process_flows(flows: list[dict], source: str, dataset_id: str | None = None
                 if result["is_malicious"]:
                     malicious += 1
                     attack_counts[result["prediction"]] = attack_counts.get(result["prediction"], 0) + 1
+                    # Persist alert in the SAME session/transaction (a second
+                    # session here deadlocks SQLite writers).
+                    try:
+                        event = detection_engine._alert_event(result, f)
+                        stored, created = alert_service.ingest(event, db=db)
+                        if created:
+                            _alert_counter["created"] += 1
+                            ws_manager.broadcast_threadsafe("alert_event", stored)
+                    except Exception:
+                        logger.exception("alert persist failed in batch")
             db.commit()
 
     return {

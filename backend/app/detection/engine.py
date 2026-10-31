@@ -24,11 +24,13 @@ class DetectionEngine:
         self._alert_sinks.append(sink)
 
     # ------------------------------------------------------------------ API
-    def detect_flow(self, flow: dict) -> dict:
+    def detect_flow(self, flow: dict, *, publish: bool = True) -> dict:
         """Run the full detection workflow on a contract flow dict.
 
         1. validate  2. features  3. classify  4. anomaly  5. severity
         6. result    7. publish alert event when malicious
+        Set publish=False when the caller persists alerts itself (batch paths
+        must not open a second DB session while a write txn is open).
         """
         feats = flow.get("flow_features")
         if not isinstance(feats, dict) or not feats:
@@ -69,7 +71,7 @@ class DetectionEngine:
             "model_loaded": inference.get("model_loaded", False),
         }
 
-        if result["is_malicious"]:
+        if result["is_malicious"] and publish:
             alert = self._alert_event(result, flow)
             for sink in self._alert_sinks:
                 try:

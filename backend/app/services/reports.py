@@ -164,12 +164,12 @@ def generate_pdf_report(db: Session, *, date_from: datetime | None, date_to: dat
                                styles["Normal"]))
     story.append(Spacer(1, 0.4 * cm))
 
-    # chart
+    # chart — defer file cleanup until after doc.build (reportlab reads lazily)
     settings = get_settings()
     chart_path = settings.reports_dir / f"_chart_{ts}.png"
-    if _charts_png(summary, chart_path) and chart_path.exists():
+    embedded_chart = bool(_charts_png(summary, chart_path)) and chart_path.exists()
+    if embedded_chart:
         story.append(Image(str(chart_path), width=16 * cm, height=5.8 * cm))
-        chart_path.unlink(missing_ok=True)
     story.append(Spacer(1, 0.4 * cm))
 
     story.append(Paragraph("Top source IPs", styles["Heading2"]))
@@ -234,4 +234,6 @@ def generate_pdf_report(db: Session, *, date_from: datetime | None, date_to: dat
     ))
 
     doc.build(story)
+    if embedded_chart:
+        chart_path.unlink(missing_ok=True)
     return filename, path, len(alerts)
