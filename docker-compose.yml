@@ -1,0 +1,54 @@
+# AI-IDS — docker compose (backend + frontend + persistent volume)
+#
+# NOTE: authored and validated on a machine without Docker; the compose file
+# follows standard Compose v3 conventions but has not been executed here.
+# Offline PCAP mode is used inside containers (live capture requires
+# --cap-add=NET_ADMIN --device /dev/net/tun and a configured interface).
+#
+# Usage:
+#   docker compose up --build -d
+#   open http://localhost:8080   (frontend; login admin@ai-ids.local / ChangeMe!123)
+#   API: http://localhost:8000/api/health
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: ai-ids/backend:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-change-me-in-production-32+bytes!!}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@ai-ids.local}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-ChangeMe!123}
+      DATABASE_URL: sqlite:////data/ai_ids.db
+      UPLOAD_DIR: /data/uploads
+      ARTIFACT_DIR: /data/artifacts
+      MAX_UPLOAD_MB: "200"
+      LIVE_CAPTURE_ENABLED: "false"   # offline PCAP mode (documented default)
+      TI_PROVIDER: none               # never send private/internal IPs externally
+    volumes:
+      - aiids-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    image: ai-ids/frontend:latest
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  aiids-data:

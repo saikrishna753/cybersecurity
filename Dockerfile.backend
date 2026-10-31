@@ -1,0 +1,30 @@
+# AI-IDS — backend service (FastAPI + uvicorn)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# libpcap available for optional live capture; offline PCAP mode works without it
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpcap0.8 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/app ./app
+COPY backend/scripts ./scripts
+COPY backend/tests ./tests
+COPY backend/pytest.ini .
+
+ENV PYTHONUNBUFFERED=1 \
+    UPLOAD_DIR=/data/uploads \
+    ARTIFACT_DIR=/data/artifacts \
+    DATABASE_URL=sqlite:////data/ai_ids.db
+
+VOLUME ["/data"]
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
