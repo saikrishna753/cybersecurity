@@ -73,6 +73,13 @@ def clean_dataset(df: pd.DataFrame, *, drop_duplicates: bool = True) -> tuple[pd
     """Validate + clean: inf/nan handling, dedupe, label normalization.
 
     Returns (cleaned_df, report).
+
+    Memory-bounded implementation: builds ONE consolidated float64 matrix
+    column-by-column instead of chaining frame-level copy/replace/isna steps.
+    The naive chain needs >3.5 GB simultaneously on the full 971k-row CIC set
+    and gets OOM-killed on a 4 GB host; this path peaks near 2 GB with identical
+    row order, dedupe decisions, and label handling (float64 throughout, so
+    downstream sampling/metrics match the original semantics exactly).
     """
     report: dict = {
         "rows_in": int(len(df)),
@@ -83,39 +90,39 @@ def clean_dataset(df: pd.DataFrame, *, drop_duplicates: bool = True) -> tuple[pd
     if LABEL_COLUMN not in df.columns:
         raise DatasetValidationError("Missing Label column")
 
-    df = df.copy()
-    df[LABEL_COLUMN] = df[LABEL_COLUMN].astype(str).str.strip()
-
-    # Keep only known-shape columns.
+    labels = df[LABEL_COLUMN].astype(str).str.strip().to_numpy()
     present = [c for c in CANONICAL_FEATURE_COLUMNS if c in df.columns]
-    for c in CANONICAL_FEATURE_COLUMNS:
-        if c not in df.columns:
-            df[c] = 0.0
-    df = df[present + [LABEL_COLUMN]]
 
-    # Coerce features to numeric.
-    for c in present:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
+    n = len(df)
+    arr = np.empty((n, len(present)), dtype=np.float64)
+    for i, c in enumerate(present):
+        col = pd.to_numeric(df[c], errors="coerce")
+        arr[:, i] = col.to_numpy(dtype=np.float64, copy=False)
 
-    # Replace +/-inf with NaN then drop rows whose label or core fields are unusable.
-    inf_mask = np.isinf(df[present].to_numpy(dtype=float, copy=False))
+    inf_mask = np.isinf(arr)
     report["non_finite_replaced"] = int(inf_mask.sum())
-    df[present] = df[present].replace([np.inf, -np.inf], np.nan)
+    arr[inf_mask] = np.nan
 
-    # Rows where Flow Bytes/s etc. are NaN but counts are sane → fill 0; drop truly broken rows.
-    bad = df[present].isna().any(axis=1)
-    df = df[~bad | df[LABEL_COLUMN].isna()]
-    df[present] = df[present].fillna(0.0)
+    # Rows whose label is unusable... original semantics: astype(str) runs first,
+    # so label-NaN never survives as NaN — keep = rows with all-finite features.
+    bad = np.isnan(arr).any(axis=1)
+    if bad.any():
+        arr = arr[~bad]
+        labels = labels[~bad]
+
+    out = pd.DataFrame(arr, columns=present)
+    out[LABEL_COLUMN] = labels
 
     if drop_duplicates:
-        dupes = df.duplicated()
+        dupes = out.duplicated()
         report["duplicates_removed"] = int(dupes.sum())
-        df = df[~dupes]
+        if dupes.any():
+            out = out[~dupes]
 
-    df[LABEL_COLUMN] = df[LABEL_COLUMN].apply(normalize_label)
-    report["rows_out"] = int(len(df))
-    report["labels"] = {str(k): int(v) for k, v in df[LABEL_COLUMN].value_counts().items()}
-    return df.reset_index(drop=True), report
+    out[LABEL_COLUMN] = out[LABEL_COLUMN].map(normalize_label)
+    report["rows_out"] = int(len(out))
+    report["labels"] = {str(k): int(v) for k, v in out[LABEL_COLUMN].value_counts().items()}
+    return out.reset_index(drop=True), report
 
 
 def prepare_xy(

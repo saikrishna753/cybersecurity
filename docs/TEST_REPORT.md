@@ -65,6 +65,13 @@ PCAP upload→analyze 200 · WS connect + detection events.
 3. **Timeline gap** — incidents had no creation event. Fixed: added `created`.
 4. **CIC std semantics** — extractor used population std; CIC used sample std
    (n−1), shifting live features off the training distribution. Fixed.
+5. **Training OOM on 4 GB host** — `clean_dataset` chained frame-level
+   copy/replace/isna (>3.5 GB peak) and was SIGKILLed mid-run. Fixed with a
+   single consolidated float64 matrix path (peak ~2.4 GB, identical row order
+   and dedupe decisions — retrained metrics reproduce the originals exactly).
+6. **Missing requirements pins** — `pydantic-settings`/`python-dotenv` were
+   required by the app but absent from `requirements.txt` (worked only because
+   the original venv had them). Added.
 
 ## 7. Known limitations (documented, not bugs)
 

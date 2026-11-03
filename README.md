@@ -59,7 +59,7 @@ Trained on 4 of 8 CIC-IDS2017 days (~971k rows; Friday-PortScan 286k, Friday-DDo
 226k, Thursday-Infiltration 289k, Thursday-WebAttacks 170k), stratified
 train/holdout, seed 42.
 
-**Binary (run 20261031165647 — 400k rows → 235,994 train / 80,000 holdout, 143 s):**
+**Binary (run 20261103032230 — 400k rows → 320,000 train / 80,000 holdout, 126 s):**
 
 | Model | Accuracy | F1 | FPR | AUC |
 |---|---|---|---|---|
@@ -68,7 +68,7 @@ train/holdout, seed 42.
 | **XGBoost (active)** | **0.9988** | **0.9976** | **0.0016** | **0.9999** |
 | Isolation Forest | 0.7497 | 0.3791 | 0.0871 | 0.6761 |
 
-**Multiclass (run 20261031165915 — 300k → 240k/60k, 92 s):**
+**Multiclass (run 20261103032445 — 300k → 240k/60k, 86 s):**
 
 | Model | Accuracy | Macro-F1 | AUC |
 |---|---|---|---|

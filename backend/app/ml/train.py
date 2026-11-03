@@ -162,6 +162,7 @@ def train_models(
 
     report(5, "Cleaning dataset")
     cleaned, clean_report = clean_dataset(df)
+    del df  # free the raw frame before feature prep/training (4 GB host)
     if len(cleaned) < 100:
         raise ValueError(f"Dataset too small after cleaning ({len(cleaned)} rows)")
 
@@ -367,6 +368,7 @@ def train_from_paths(
             progress(int(5 * i / max(len(paths), 1)), f"Loading {Path(p).name}")
         frames.append(read_cic_csv(p))
     df = pd.concat(frames, ignore_index=True)
+    frames.clear()  # release per-file copies before concat-derived training work
     if progress:
         progress(5, f"Loaded {len(df)} rows")
     return train_models(
